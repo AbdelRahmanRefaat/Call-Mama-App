@@ -17,4 +17,42 @@
         android:layout_height="match_parent"
         tools:context=".MapActivity" />
 
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:id="@+id/searchLayout"
+        android:layout_marginTop="10dp"
+        android:layout_marginLeft="10dp"
+        android:layout_marginRight="10dp"
+        android:background="#FFFFFF"
+
+        >
+        <ImageView
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:id="@+id/icon_search"
+            android:src="@drawable/icon_search"
+            android:layout_marginLeft="10dp"
+            android:layout_centerVertical="true"
+
+            />
+        <AutoCompleteTextView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:id="@+id/textSearchET"
+            android:textSize="15sp"
+            android:layout_toRightOf="@id/icon_search"
+            android:textColor="#000000"
+            android:hint="Enter Address, City or Zip Code"
+            android:background="@null"
+            android:singleLine="true"
+
+            />
+
+
+    </RelativeLayout>
+
+
+
+
 </RelativeLayout>

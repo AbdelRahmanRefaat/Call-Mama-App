@@ -7,6 +7,13 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 
+//TODOS
+// TODO: add search bar for the user to search locations
+// TODO: add avilabilty for the user to add marker in the location he wish to go
+// TODO: add polyline to follow the path of the user activity
+// TODO: add geofence to monitior the user's location
+
+
 public class MainActivity extends AppCompatActivity {
 
     @Override

@@ -1,10 +1,17 @@
 package com.example.callmama;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.KeyEvent;
+import android.widget.AutoCompleteTextView;
+import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -13,18 +20,37 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.places.Places;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
+import com.google.android.libraries.places.api.model.Place;
+import com.google.android.libraries.places.api.net.PlacesClient;
+import com.google.android.libraries.places.widget.Autocomplete;
+import com.google.android.libraries.places.widget.AutocompleteActivity;
+import com.google.android.libraries.places.widget.AutocompleteSupportFragment;
+import com.google.android.libraries.places.widget.listener.PlaceSelectionListener;
+import com.google.android.libraries.places.widget.model.AutocompleteActivityMode;
 
-public class MapActivity extends AppCompatActivity implements OnMapReadyCallback {
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
+, GoogleApiClient.OnConnectionFailedListener{
 
 
     /*
@@ -42,25 +68,131 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         // enable my location to appear in the map
         mMap.setMyLocationEnabled(true);
 
+        mMap.getUiSettings().setMyLocationButtonEnabled(false);
+        initWidgets();
+      //  AutoCompleteSearch();
+
+
+    }
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
 
     }
     // constants
     private static final String TAG = "MapActivity";
 
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 555;
+    private static final int AUTOCOMPLETION_REQUEST_CODE = 666;
+
     private static final float DEFAULT_ZOOM = 15f; // Zoom Takse Values from 0  to 21
+
+    // widgets
+    private AutoCompleteTextView inputSearchText;
+    private Button goSearch;
 
     // vars
     private GoogleMap mMap;
     private boolean mLocationPermissionGranted = false;
     private FusedLocationProviderClient mCurrentLocation;
-    
+    private GoogleApiClient mGoogleApiClient;
+    private PlaceAutocompleteAdapter mPlaceAutocompleteAdapter;
+    private static final LatLngBounds LAT_LNG_BOUNDS = new LatLngBounds(
+            new LatLng(-40,-168) , new LatLng(71,136));
+
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_map);
+
         getDeviceLocationPermission();
         getDeviceLocation();
+
+        if (!com.google.android.libraries.places.api.Places.isInitialized()) {
+            com.google.android.libraries.places.api.Places.initialize(getApplicationContext(), String.valueOf(R.string.google_map_api_key));
+        }
+
+
+//        // Set the fields to specify which types of place data to return.
+//        List<Place.Field> fields = Arrays.asList(Place.Field.ID, Place.Field.NAME);
+//
+//        // Start the autocomplete intent.
+//        Intent intent = new Autocomplete.IntentBuilder(
+//                AutocompleteActivityMode.OVERLAY, fields)
+//                .build(this);
+//        startActivityForResult(intent, AUTOCOMPLETION_REQUEST_CODE);
+    }
+
+    void initWidgets(){
+        Log.d(TAG, "initWidgets: initing widgets");
+        mGoogleApiClient = new GoogleApiClient
+                .Builder(this)
+                .addApi(Places.GEO_DATA_API)
+                .addApi(Places.PLACE_DETECTION_API)
+                .enableAutoManage(this, this)
+                .build();
+
+        mPlaceAutocompleteAdapter = new PlaceAutocompleteAdapter(this, mGoogleApiClient,
+                LAT_LNG_BOUNDS, null);
+
+        inputSearchText = (AutoCompleteTextView) findViewById(R.id.textSearchET);
+        //inputSearchText.setAdapter(mPlaceAutocompleteAdapter);
+        inputSearchText.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+
+            @Override
+            public boolean onEditorAction(TextView textView, int action, KeyEvent keyEvent) {
+                Log.d(TAG, "onEditorAction: we Entered the Editor Action");
+                GeoLocate();
+                return false;
+            }
+        });
+    }
+
+//    private void AutoCompleteSearch(){
+//        // Set the fields to specify which types of place data to
+//        // return after the user has made a selection.
+//        List<Place.Field> fields = Arrays.asList(Place.Field.ID,Place.Field.NAME);
+//        // Start the autocomplete intent.
+//        Intent intent = new Autocomplete.IntentBuilder(
+//                AutocompleteActivityMode.FULLSCREEN, fields)
+//                .build(this);
+//        startActivityForResult(intent, AUTOCOMPLETION_REQUEST_CODE);
+//    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == AUTOCOMPLETION_REQUEST_CODE) {
+            if (resultCode == RESULT_OK) {
+                 Place place = Autocomplete.getPlaceFromIntent(data);
+                   Log.d(TAG, "onActivityResult: Place" + place.getName() + place.getAddress());
+            } else if (resultCode == AutocompleteActivity.RESULT_ERROR) {
+                Status status = Autocomplete.getStatusFromIntent(data);
+                Log.i(TAG, status.getStatusMessage());
+            }
+        }
+    }
+
+    private void GeoLocate() {
+        String searchInput = inputSearchText.getText().toString();
+        Geocoder geocoder = new Geocoder(MapActivity.this);
+        List<Address> ADSlist =  new ArrayList<>();
+        try {
+            ADSlist = geocoder.getFromLocationName(searchInput, 1);
+        }catch (IOException e){
+            Log.d(TAG, "GeoLocate: " + e.getMessage());
+        }
+        if(ADSlist.size() > 0){
+            Address address = ADSlist.get(0);
+            Log.d(TAG, "GeoLocate: Location is = " + address);
+            moveCamera(new LatLng(address.getLatitude(),address.getLongitude()),DEFAULT_ZOOM);
+            MarkerOptions mk = new MarkerOptions().position(new LatLng(address.getLatitude(),address.getLongitude()))
+                    .title("Location Bla Bla");
+            mMap.addMarker(mk);
+        }else{
+            Log.d(TAG, "GeoLocate: There is no Location found...");
+        }
 
     }
 
@@ -173,4 +305,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         }
 
     }
+
+
 }
