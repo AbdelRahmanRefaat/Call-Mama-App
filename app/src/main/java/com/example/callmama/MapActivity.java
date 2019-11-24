@@ -3,10 +3,12 @@ package com.example.callmama;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
 import android.os.Bundle;
+import android.os.Looper;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.widget.AutoCompleteTextView;
@@ -24,6 +26,9 @@ import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.places.Places;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -33,6 +38,8 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.libraries.places.api.model.Place;
@@ -96,6 +103,12 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     private FusedLocationProviderClient mCurrentLocation;
     private GoogleApiClient mGoogleApiClient;
     private PlaceAutocompleteAdapter mPlaceAutocompleteAdapter;
+    private PolylineOptions routeTrackerOptions;
+    private Polyline routeTracker;
+    private LocationCallback locationCallback;
+    private LocationRequest locationRequest;
+
+
     private static final LatLngBounds LAT_LNG_BOUNDS = new LatLngBounds(
             new LatLng(-40,-168) , new LatLng(71,136));
 
@@ -107,20 +120,59 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
         getDeviceLocationPermission();
         getDeviceLocation();
-
+        startRouteTracking();
+        //
         if (!com.google.android.libraries.places.api.Places.isInitialized()) {
             com.google.android.libraries.places.api.Places.initialize(getApplicationContext(), String.valueOf(R.string.google_map_api_key));
         }
 
+    }
+    /*
+    * -initing the necessary functions for the route tracing
+    * -and start route tracking
+    * */
+    private void startRouteTracking(){
 
-//        // Set the fields to specify which types of place data to return.
-//        List<Place.Field> fields = Arrays.asList(Place.Field.ID, Place.Field.NAME);
-//
-//        // Start the autocomplete intent.
-//        Intent intent = new Autocomplete.IntentBuilder(
-//                AutocompleteActivityMode.OVERLAY, fields)
-//                .build(this);
-//        startActivityForResult(intent, AUTOCOMPLETION_REQUEST_CODE);
+        initRouteTracker(); // inition the routeTrackerOptions & Polyline
+        // the properties of the call back e.g The interval on which we will periodicly request the updates of the location
+        initLocationRequestProperties();
+        // start requesting the updates about our current location
+        startLocationUpdates();
+    }
+    /*
+    *  inition the routeTrackerOptions & Polyline
+    *  also inition LocationCall back & drawing the route so far
+    * */
+    private void initRouteTracker(){
+        Log.d(TAG, "initRouteTracker: initing route tracker ..");
+        routeTrackerOptions = new PolylineOptions();
+        locationCallback = new LocationCallback(){
+            @Override
+            public void onLocationResult(LocationResult locationResult){
+                        if(locationResult == null)
+                                return;
+                Log.d(TAG, "onLocationResult: locatiosn found are " + locationResult.getLocations().size());
+                        for(Location location : locationResult.getLocations()){
+                                moveCamera(new LatLng(location.getLatitude()
+                                ,location.getLongitude()),mMap.getCameraPosition().zoom);
+                                routeTrackerOptions.add(new LatLng(location.getLatitude(),
+                                        location.getLongitude()));
+                        }
+                        routeTrackerOptions.color(Color.CYAN);
+                        routeTracker =mMap.addPolyline(routeTrackerOptions);
+            }
+        };
+
+    }
+    private void initLocationRequestProperties(){
+                locationRequest = locationRequest.create();
+                locationRequest.setInterval(3000);
+                locationRequest.setFastestInterval(3000);
+                locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+    }
+    private  void startLocationUpdates(){
+            mCurrentLocation.requestLocationUpdates(locationRequest
+            ,locationCallback, Looper.getMainLooper());
     }
 
     void initWidgets(){
